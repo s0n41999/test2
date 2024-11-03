@@ -14,9 +14,7 @@ import requests
 import feedparser
 
 #-----------------NASTAVENIA-----------------
-
 st.set_page_config(layout="centered")
-
 #------------------------------------------
 
 st.title('Predikcia časových radov vybraných valutových kurzov')
@@ -73,27 +71,37 @@ st.line_chart(spojene_data)
 def predikcia():
     model_options = {
         'Lineárna Regresia': LinearRegression(),
-        'Regresor náhodného lesa': RandomForestRegressor(),
+        'Regresor náhodného lesa': RandomForestRegressor(n_estimators=200),  # Zvýšený počet stromov
         'Regresor K najbližších susedov': KNeighborsRegressor()
     }
 
     model = st.selectbox('Vyberte model', list(model_options.keys()))
     pocet_dni = st.number_input('Koľko dní chcete predpovedať?', value=5)
     pocet_dni = int(pocet_dni)
+    
     if st.button('Predikovať'):
         algoritmus = model_options.get(model)
 
-        # Vykonanie modelu
-        df = data[['Close']]
-        df['predikcia'] = data.Close.shift(-pocet_dni)
+        # Vytvorenie ďalších charakteristík (features)
+        df = data[['Close']].copy()
+        df['50ma'] = df['Close'].rolling(window=50).mean()
+        df['200ma'] = df['Close'].rolling(window=200).mean()
+        df['predikcia'] = df['Close'].shift(-pocet_dni)
+        
+        # Odstránenie riadkov s NaN hodnotami (vznikajúcimi z posunutia a kĺzavého priemeru)
+        df.dropna(inplace=True)
+
+        # Vstupné a cieľové premenné
         x = df.drop(['predikcia'], axis=1).values
+        y = df['predikcia'].values
+
+        # Škálovanie dát
         x = scaler.fit_transform(x)
         x_predikcia = x[-pocet_dni:]
         x = x[:-pocet_dni]
-        y = df.predikcia.values
         y = y[:-pocet_dni]
 
-        # Rozdelenie dát
+        # Rozdelenie dát na trénovaciu a testovaciu množinu
         train_size = int(len(x) * 0.8)
         x_trenovanie, x_testovanie = x[:train_size], x[train_size:]
         y_trenovanie, y_testovanie = y[:train_size], y[train_size:]
@@ -114,11 +122,12 @@ def predikcia():
 
         data_predicted = pd.DataFrame(predikovane_data)
 
+        # Výpočet metrík pre hodnotenie modelu
         rmse = np.sqrt(np.mean((y_testovanie - predikcia) ** 2))
         mae = mean_absolute_error(y_testovanie, predikcia)
         st.text(f'RMSE: {rmse} \nMAE: {mae}')
 
-        # Button to download prediction data with the correct delimiter
+        # Stiahnutie predikovaných dát ako CSV
         csv = data_predicted.to_csv(index=False, sep=';', encoding='utf-8')
         st.download_button(
             label="Stiahnuť predikciu ako CSV",
@@ -136,7 +145,7 @@ def zobraz_spravy_v_sidebar():
     feed = feedparser.parse(feed_url)
 
     if len(feed.entries) > 0:
-        for entry in feed.entries[:10]:  # Zobrazíme prvých 5 relevantných správ
+        for entry in feed.entries[:10]:  # Zobrazíme prvých 10 relevantných správ
             st.sidebar.subheader(entry.title)
             if hasattr(entry, 'summary'):
                 st.sidebar.write(entry.summary)
