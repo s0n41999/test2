@@ -1,0 +1,8 @@
+numpy
+pandas
+scikit_learn
+streamlit
+yfinance
+matplotlib
+requests
+feedparser
