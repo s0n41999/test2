@@ -183,7 +183,7 @@ def zobraz_spravy_v_sidebar():
     feed = feedparser.parse(feed_url)
 
     if len(feed.entries) > 0:
-        for entry in feed.entries[:10]:  # Zobrazíme prvých 10 relevantných správ
+    for entry in feed.entries[:10]:  # Zobrazíme prvých 10 relevantných správ
         for entry in feed.entries[:15]: 
             st.sidebar.subheader(entry.title)
             if hasattr(entry, 'summary'):
