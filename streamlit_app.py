@@ -40,13 +40,11 @@ start_date = start
 end_date = dnes
 
 data = stiahnut_data(moznost, start_date, end_date)
-scaler = StandardScaler()
 
 # Ensure the 'Close' column is accessible even if multi-indexed
 close_column = [col for col in data.columns if 'Close' in col]
 if close_column:
     data['Close'] = data[close_column[0]]
-
 
 st.write('Záverečný kurz')
 st.line_chart(data['Close'])
@@ -73,8 +71,8 @@ st.line_chart(spojene_data)
 def predikcia():
     model_options = {
         'Lineárna Regresia': LinearRegression(),
-        'Regresor náhodného lesa': RandomForestRegressor(),
-        'Regresor K najbližších susedov': KNeighborsRegressor()
+        'Regresor náhodného lesa': RandomForestRegressor(max_depth=5, n_estimators=100),
+        'Regresor K najbližších susedov': KNeighborsRegressor(n_neighbors=3)
     }
     
     model = st.selectbox('Vyberte model', list(model_options.keys()))
@@ -136,7 +134,7 @@ def predikcia():
         data_predicted = pd.DataFrame(predikovane_data)
 
         # Hodnotenie modelu
-        rmse = np.sqrt(np.mean((y_testovanie - predikcia) ** 2))
+        rmse = np.sqrt(mean_squared_error(y_testovanie, predikcia))
         mae = mean_absolute_error(y_testovanie, predikcia)
         st.text(f'RMSE: {rmse} \nMAE: {mae}')
 
@@ -149,7 +147,6 @@ def predikcia():
             mime='text/csv'
         )
 
-        
 def zobraz_spravy_v_sidebar():
     st.sidebar.header('Aktuálne Správy súvisiace s Menovým Trhom :chart_with_upwards_trend:')
     st.sidebar.markdown('---')
@@ -162,7 +159,7 @@ def zobraz_spravy_v_sidebar():
             st.sidebar.subheader(entry.title)
             if hasattr(entry, 'summary'):
                 st.sidebar.write(entry.summary)
-            st.sidebar.write(f"[Čítať viac]({entry.link})")
+            st.sidebar.write(f"[\u010c\u00edta\u0165 viac]({entry.link})")
             st.sidebar.markdown('---')  # Pridanie oddeľovacej čiary medzi správami
     else:
         st.sidebar.write('Nenašli sa žiadne správy.')
