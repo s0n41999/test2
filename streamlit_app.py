@@ -173,9 +173,6 @@ def predikcia():
         )
         
 def zobraz_spravy_v_sidebar():
-    st.sidebar.header('Aktuálne Správy súvisiace s Menovým Trhom')
-    st.sidebar.write('Načítavam aktuálne správy z RSS kanálov...')
-    st.sidebar.header('Aktuálne Správy súvisiace s Menovým Trhom :dollar: ')
     st.sidebar.header('Aktuálne Správy súvisiace s Menovým Trhom :chart_with_upwards_trend:')
     st.sidebar.markdown('---')
     # Použitie RSS feedu pre načítanie finančných správ z Investing.com - Forex News sekcia
@@ -183,12 +180,10 @@ def zobraz_spravy_v_sidebar():
     feed = feedparser.parse(feed_url)
 
     if len(feed.entries) > 0:
-    for entry in feed.entries[:10]:  # Zobrazíme prvých 10 relevantných správ
         for entry in feed.entries[:15]: 
             st.sidebar.subheader(entry.title)
-        if hasattr(entry, 'summary'):
+            if hasattr(entry, 'summary'):
                 st.sidebar.write(entry.summary)
-            st.sidebar.write(f"[\u010c\u00edta\u0165 viac]({entry.link})")
             st.sidebar.write(f"[Čítať viac]({entry.link})")
             st.sidebar.markdown('---')  # Pridanie oddeľovacej čiary medzi správami
     else:
