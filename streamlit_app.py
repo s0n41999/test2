@@ -109,14 +109,20 @@ def predikcia():
         # Predikcia na testovacej množine
         predikcia = algoritmus.predict(x_testovanie)
 
-        # Predikcia budúcich hodnôt naraz
-        posledne_data = df.drop(['Close'], axis=1).values[-1].reshape(1, -1)  # Používame posledné dáta ako základ pre predikciu
-        posledne_data = scaler.transform(posledne_data)
+        # Predikcia budúcich hodnôt
+        posledne_data = x[-1].reshape(1, -1)  # Používame posledné dáta ako základ pre predikciu
+        posledne_data = scaler.transform(posledne_data)  # Normalizujeme posledné dáta pred použitím v predikcii
 
-        predikcia_forecast = algoritmus.predict(posledne_data)
+        predikcia_forecast = []
 
-        # Denormalizácia predikčných výsledkov
-        predikcia_forecast = scaler.inverse_transform([predikcia_forecast])[0]
+        for _ in range(pocet_dni):
+            buduca_hodnota = algoritmus.predict(posledne_data)[0]
+            predikcia_forecast.append(buduca_hodnota)
+            
+            # Aktualizujeme "lag" hodnoty na ďalšiu predikciu
+            posledne_data = np.roll(posledne_data, -1)
+            posledne_data[0, -1] = buduca_hodnota
+            posledne_data = scaler.transform(posledne_data.reshape(1, -1))  # Znovu normalizujeme, aby sme udržali konzistentné škálovanie
 
         # Výpis predikcií
         den = 1
