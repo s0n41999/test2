@@ -5,11 +5,11 @@ import yfinance as yf
 import datetime
 from datetime import date
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split, TimeSeriesSplit
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error  
 import requests
 import feedparser
 
@@ -32,7 +32,7 @@ def stiahnut_data(user_input, start_date, end_date):
         df.columns = ['_'.join(col).strip() for col in df.columns.values]
     return df
 
-moznost = st.selectbox('Zadajte menový tiker', ['EURUSD=X','EURCHF=X', 'EURAUD=X','EURNZD=X', 'EURCAD=X', 'EURSEK=X', 'EURNOK=X', 'EURCZK=X', 'TRY=X'])
+moznost = st.selectbox('Zadajte menový tiker', ['EURUSD=X','EURCHF=X', 'EURAUD=X','EURNZD=X', 'EURCAD=X', 'EURSEK=X', 'EURNOK=X', 'EURCZK=X', 'TRY=X', 'GBPJPY=X', 'ZAR=X' ])
 moznost = moznost.upper()
 dnes = datetime.date.today()
 start = dnes - datetime.timedelta(days=3650)
@@ -43,10 +43,10 @@ data = stiahnut_data(moznost, start_date, end_date)
 scaler = StandardScaler()
 
 # Ensure the 'Close' column is accessible even if multi-indexed
-if 'Close' not in data.columns:
-    close_column = [col for col in data.columns if 'Close' in col]
-    if close_column:
-        data['Close'] = data[close_column[0]]
+close_column = [col for col in data.columns if 'Close' in col]
+if close_column:
+    data['Close'] = data[close_column[0]]
+
 
 st.write('Záverečný kurz')
 st.line_chart(data['Close'])
@@ -97,30 +97,16 @@ def predikcia():
         x = df.drop(['Close'], axis=1).values
         y = df['Close'].values
 
-        # Použitie TimeSeriesSplit na rozdelenie dát pre lepšiu validáciu časových radov
-        tscv = TimeSeriesSplit(n_splits=5)
-        rmse_list = []
-        mae_list = []
+        # Rozdelenie dát na tréning a testovanie
+        train_size = int(len(x) * 0.8)
+        x_trenovanie, x_testovanie = x[:train_size], x[train_size:]
+        y_trenovanie, y_testovanie = y[:train_size], y[train_size:]
 
-        for train_index, test_index in tscv.split(x):
-            x_trenovanie, x_testovanie = x[train_index], x[test_index]
-            y_trenovanie, y_testovanie = y[train_index], y[test_index]
+        # Trénovanie modelu
+        algoritmus.fit(x_trenovanie, y_trenovanie)
 
-            # Trénovanie modelu
-            algoritmus.fit(x_trenovanie, y_trenovanie)
-
-            # Predikcia na testovacej množine
-            predikcia = algoritmus.predict(x_testovanie)
-
-            # Hodnotenie modelu pre každý split
-            rmse = np.sqrt(np.mean((y_testovanie - predikcia) ** 2))
-            mae = mean_absolute_error(y_testovanie, predikcia)
-            rmse_list.append(rmse)
-            mae_list.append(mae)
-
-        # Priemer RMSE a MAE pre lepšie hodnotenie
-        avg_rmse = np.mean(rmse_list)
-        avg_mae = np.mean(mae_list)
+        # Predikcia na testovacej množine
+        predikcia = algoritmus.predict(x_testovanie)
 
         # Predikcia budúcich hodnôt 
         posledne_data = x[-1].reshape(1, -1)
@@ -131,7 +117,8 @@ def predikcia():
             predikcia_forecast.append(buduca_hodnota)
             
             # Aktualizujeme "lag" hodnoty na ďalšiu predikciu
-            posledne_data = np.append(posledne_data[:, 1:], [[buduca_hodnota]], axis=1)
+            posledne_data = np.roll(posledne_data, -1)
+            posledne_data[0, -1] = buduca_hodnota
 
         # Výpis predikcií
         den = 1
@@ -144,8 +131,10 @@ def predikcia():
 
         data_predicted = pd.DataFrame(predikovane_data)
 
-        # Výpis priemerného hodnotenia modelu
-        st.text(f'Priemerné RMSE: {avg_rmse} \nPriemerné MAE: {avg_mae}')
+        # Hodnotenie modelu
+        rmse = np.sqrt(np.mean((y_testovanie - predikcia) ** 2))
+        mae = mean_absolute_error(y_testovanie, predikcia)
+        st.text(f'RMSE: {rmse} \nMAE: {mae}')
 
         # Stiahnutie dat ako cvs
         csv = data_predicted.to_csv(index=False, sep=';', encoding='utf-8')
