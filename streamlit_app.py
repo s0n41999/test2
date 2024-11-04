@@ -97,10 +97,13 @@ def predikcia():
         x = df.drop(['Close'], axis=1).values
         y = df['Close'].values
 
-        # Rozdelenie dát na 70 % trénovaciu a 30 % testovaciu množinu, bez miešania dát
-        x_trenovanie, x_testovanie, y_trenovanie, y_testovanie = train_test_split(
-            x, y, test_size=0.3, shuffle=False
-        )
+        # Rozdelenie dát na tréning a testovanie
+        x_trenovanie, x_testovanie, y_trenovanie, y_testovanie = train_test_split(x, y, test_size=0.2, random_state=42)
+
+        # Normalizácia vstupných hodnôt
+        scaler = StandardScaler()
+        x_trenovanie = scaler.fit_transform(x_trenovanie)
+        x_testovanie = scaler.transform(x_testovanie)
 
         # Trénovanie modelu
         algoritmus.fit(x_trenovanie, y_trenovanie)
@@ -108,36 +111,22 @@ def predikcia():
         # Predikcia na testovacej množine
         predikcia = algoritmus.predict(x_testovanie)
 
-        # Výpočet metrík RMSE a MAE pre testovaciu množinu
-        rmse = np.sqrt(mean_squared_error(y_testovanie, predikcia))
-        mae = mean_absolute_error(y_testovanie, predikcia)
-        st.text(f'RMSE: {rmse} \nMAE: {mae}')
-
-        # Predikcia budúcich hodnôt a výpočet simulovaných chýb
-        posledne_data = x[-1].reshape(1, -1)
+        # Predikcia budúcich hodnôt 
+        posledne_data = x_testovanie[-1].reshape(1, -1)  # Používame posledné testovacie dáta ako základ pre ďalšiu predikciu
         predikcia_forecast = []
-        simulated_y_test = []  # Simulované skutočné hodnoty pre budúcnosť
-
+        
         for _ in range(pocet_dni):
             buduca_hodnota = algoritmus.predict(posledne_data)[0]
             predikcia_forecast.append(buduca_hodnota)
             
-            # Pridáme simulovanú skutočnú hodnotu s náhodným šumom
-            simulated_y_test.append(buduca_hodnota + np.random.normal(0, 0.01))
-            
             # Aktualizujeme "lag" hodnoty na ďalšiu predikciu
             posledne_data = np.roll(posledne_data, -1)
             posledne_data[0, -1] = buduca_hodnota
-
-        # Výpočet chýb RMSE a MAE pre simulovanú budúcu predikciu
-        simulated_rmse = np.sqrt(mean_squared_error(simulated_y_test, predikcia_forecast))
-        simulated_mae = mean_absolute_error(simulated_y_test, predikcia_forecast)
-        st.text(f'Simulované RMSE pre budúce dáta: {simulated_rmse} \nSimulované MAE pre budúce dáta: {simulated_mae}')
+            posledne_data = scaler.transform(posledne_data)  # Normalizujeme, aby sme udržali konzistentné škálovanie
 
         # Výpis predikcií
         den = 1
         predikovane_data = []
-        dnes = datetime.date.today()
         for i in predikcia_forecast:
             aktualny_datum = dnes + datetime.timedelta(days=den)
             st.text(f'{aktualny_datum.strftime("%d. %B %Y")}: {i}')
@@ -146,7 +135,12 @@ def predikcia():
 
         data_predicted = pd.DataFrame(predikovane_data)
 
-        # Stiahnutie dát ako CSV
+        # Hodnotenie modelu
+        rmse = np.sqrt(np.mean((y_testovanie - predikcia) ** 2))
+        mae = mean_absolute_error(y_testovanie, predikcia)
+        st.text(f'RMSE: {rmse} \nMAE: {mae}')
+
+        # Stiahnutie dat ako cvs
         csv = data_predicted.to_csv(index=False, sep=';', encoding='utf-8')
         st.download_button(
             label="Stiahnuť predikciu ako CSV",
@@ -154,6 +148,7 @@ def predikcia():
             file_name=f'predikcia_{moznost}.csv',
             mime='text/csv'
         )
+
         
 def zobraz_spravy_v_sidebar():
     st.sidebar.header('Aktuálne Správy súvisiace s Menovým Trhom :chart_with_upwards_trend:')
