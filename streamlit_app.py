@@ -167,7 +167,6 @@ def predikcia():
         st.download_button(
             label="Stiahnuť predikciu ako CSV",
             data=csv,
-            file_name='predikcia.csv',
             file_name=f'predikcia_{moznost}.csv',
             mime='text/csv'
         )
