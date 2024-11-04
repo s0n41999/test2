@@ -19,7 +19,7 @@ st.set_page_config(layout="centered")
 
 #------------------------------------------
 
-st.title('Predikcia časových radov vybraných valutových kurzov')
+st.title('Predikcia časových radov vybraných valutových kurzov 11')
 
 def main():
     zobraz_spravy_v_sidebar()
