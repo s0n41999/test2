@@ -10,19 +10,16 @@ from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error  
-import requests
-import feedparser
-
 #-----------------NASTAVENIA-----------------
 
 st.set_page_config(layout="centered")
+
 
 #------------------------------------------
 
 st.title('Predikcia časových radov vybraných valutových kurzov')
 
 def main():
-    zobraz_spravy_v_sidebar()
     predikcia()
 
 def stiahnut_data(user_input, start_date, end_date):
@@ -32,6 +29,7 @@ def stiahnut_data(user_input, start_date, end_date):
         df.columns = ['_'.join(col).strip() for col in df.columns.values]
     return df
 
+moznost = st.selectbox('Zadajte menový tiker', ['EURUSD=X','JPY=X', 'GBPUSD=X'])
 moznost = st.selectbox('Zadajte menový tiker', ['EURUSD=X','EURCHF=X', 'EURAUD=X','EURNZD=X', 'EURCAD=X', 'EURSEK=X', 'EURNOK=X', 'EURCZK=X', 'TRY=X', 'MXN=X'])
 moznost = moznost.upper()
 dnes = datetime.date.today()
@@ -47,13 +45,13 @@ close_column = [col for col in data.columns if 'Close' in col]
 if close_column:
     data['Close'] = data[close_column[0]]
 
-
+# Plotting the data
 st.write('Záverečný kurz')
 st.line_chart(data['Close'])
 st.header('Nedávne Dáta')
 st.dataframe(data.tail(20))
 
-# vypočet kĺzavého priemeru
+# Calculating and plotting moving averages
 st.header('Jednoduchý kĺzavý priemer za 50 dní')
 datama50 = data.copy()
 datama50['50ma'] = datama50['Close'].rolling(50).mean()
@@ -70,97 +68,67 @@ spojene_data = pd.concat([datama200[['200ma', 'Close']], datama50[['50ma']]], ax
 st.header('Jednoduchý kĺzavý priemer za 50 dní a 200 dní')
 st.line_chart(spojene_data)
 
+
+def dataframe():
+    st.header('Nedávne dáta')
+    st.dataframe(data.tail(10))
+
+
+
 def predikcia():
-    model_options = {
-        'Lineárna Regresia': LinearRegression(),
-        'Regresor náhodného lesa': RandomForestRegressor(),
-        'Regresor K najbližších susedov': KNeighborsRegressor()
-    }
-    
-    model = st.selectbox('Vyberte model', list(model_options.keys()))
+    model = st.selectbox('Vyberte model', ['Lineárna Regresia', 'Regresor náhodného lesa', 'Regresor K najbližších susedov'])
     pocet_dni = st.number_input('Koľko dní chcete predpovedať?', value=5)
     pocet_dni = int(pocet_dni)
-    
     if st.button('Predikovať'):
-        algoritmus = model_options.get(model)
+        if model == 'Lineárna Regresia':
+            algoritmus = LinearRegression()
+            vykonat_model(algoritmus, pocet_dni)
+        elif model == 'Regresor náhodného lesa':
+            algoritmus = RandomForestRegressor()
+            vykonat_model(algoritmus, pocet_dni)
+        elif model == 'Regresor K najbližších susedov':
+            algoritmus = KNeighborsRegressor()
+            vykonat_model(algoritmus, pocet_dni)
 
-        # Príprava dát pre "lagged" predikciu
-        df = data[['Close']].copy()
-        
-        # Pridáme oneskorené hodnoty (lag features) ako prediktory
-        for lag in range(1, pocet_dni + 1):
-            df[f'lag_{lag}'] = df['Close'].shift(lag)
 
-        df.dropna(inplace=True)
 
-        # Vytvorenie vstupných a výstupných hodnôt
-        x = df.drop(['Close'], axis=1).values
-        y = df['Close'].values
+def vykonat_model(model, pocet_dni): 
+    df = data[['Close']]
+    df['predikcia'] = data.Close.shift(-pocet_dni)
+    x = df.drop(['predikcia'], axis=1).values
+    x = scaler.fit_transform(x)
+    x_predikcia = x[-pocet_dni:]
+    x = x[:-pocet_dni]
+    y = df.predikcia.values
+    y = y[:-pocet_dni]
 
-        # Rozdelenie dát na tréning a testovanie
-        train_size = int(len(x) * 0.8)
-        x_trenovanie, x_testovanie = x[:train_size], x[train_size:]
-        y_trenovanie, y_testovanie = y[:train_size], y[train_size:]
+    #rozdelenie dát
+    x_trenovanie, x_testovanie, y_trenovanie, y_testovanie = train_test_split(x, y, test_size=.2, random_state=7)
+    # trénovanie modelu
+    model.fit(x_trenovanie, y_trenovanie)
+    predikcia = model.predict(x_testovanie)
 
-        # Trénovanie modelu
-        algoritmus.fit(x_trenovanie, y_trenovanie)
+    # predikcia na základe počtu dní
+    predikcia_forecast = model.predict(x_predikcia)
+    den = 1
+    predikovane_data = []
+    col1, col2 = st.columns(2)
 
-        # Predikcia na testovacej množine
-        predikcia = algoritmus.predict(x_testovanie)
-
-        # Predikcia budúcich hodnôt 
-        posledne_data = x[-1].reshape(1, -1)
-        predikcia_forecast = []
-        
-        for _ in range(pocet_dni):
-            buduca_hodnota = algoritmus.predict(posledne_data)[0]
-            predikcia_forecast.append(buduca_hodnota)
-            
-            # Aktualizujeme "lag" hodnoty na ďalšiu predikciu
-            posledne_data = np.roll(posledne_data, -1)
-            posledne_data[0, -1] = buduca_hodnota
-
-        # Výpis predikcií
-        den = 1
-        predikovane_data = []
+    with col1:
         for i in predikcia_forecast:
             aktualny_datum = dnes + datetime.timedelta(days=den)
-            st.text(f'{aktualny_datum.strftime("%d. %B %Y")}: {i}')
-            predikovane_data.append({'datum': aktualny_datum, 'predikcia': i})
+            st.text(f'Deň {den}: {i}')
+            predikovane_data.append({'Deň': aktualny_datum, 'Predikcia': i})
             den += 1
 
-        data_predicted = pd.DataFrame(predikovane_data)
+    with col2:
+         data_predicted = pd.DataFrame(predikovane_data)
+         st.dataframe(data_predicted)
 
-        # Hodnotenie modelu
-        rmse = np.sqrt(np.mean((y_testovanie - predikcia) ** 2))
-        mae = mean_absolute_error(y_testovanie, predikcia)
-        st.text(f'RMSE: {rmse} \nMAE: {mae}')
+    rmse = np.sqrt(np.mean((y_testovanie - predikcia) ** 2))
+    st.text(f'RMSE: {rmse} \
+            \nMAE: {mean_absolute_error(y_testovanie, predikcia)}')
 
-        # Stiahnutie dat ako cvs
-        csv = data_predicted.to_csv(index=False, sep=';', encoding='utf-8')
-        st.download_button(
-            label="Stiahnuť predikciu ako CSV",
-            data=csv,
-            file_name=f'predikcia_{moznost}.csv',
-            mime='text/csv'
-        )
-
-def zobraz_spravy_v_sidebar():
-    st.sidebar.header('Aktuálne Správy súvisiace s Menovým Trhom :chart_with_upwards_trend:')
-    st.sidebar.markdown('---')
-    # Použitie RSS feedu pre načítanie finančných správ z Investing.com - Forex News sekcia
-    feed_url = 'https://www.investing.com/rss/news_1.rss'  # RSS kanál zameraný na Forex News od Investing.com
-    feed = feedparser.parse(feed_url)
-
-    if len(feed.entries) > 0:
-        for entry in feed.entries[:15]: 
-            st.sidebar.subheader(entry.title)
-            if hasattr(entry, 'summary'):
-                st.sidebar.write(entry.summary)
-            st.sidebar.write(f"[Čítať viac]({entry.link})")
-            st.sidebar.markdown('---')  # Pridanie oddeľovacej čiary medzi správami
-    else:
-        st.sidebar.write('Nenašli sa žiadne správy.')
 
 if __name__ == '__main__':
     main()
