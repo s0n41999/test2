@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error  
 import requests
 import feedparser
 
@@ -40,11 +40,13 @@ start_date = start
 end_date = dnes
 
 data = stiahnut_data(moznost, start_date, end_date)
+scaler = StandardScaler()
 
 # Ensure the 'Close' column is accessible even if multi-indexed
-close_column = [col for col in data.columns if 'Close' in col]
-if close_column:
-    data['Close'] = data[close_column[0]]
+if 'Close' not in data.columns:
+    close_column = [col for col in data.columns if 'Close' in col]
+    if close_column:
+        data['Close'] = data[close_column[0]]
 
 st.write('Záverečný kurz')
 st.line_chart(data['Close'])
@@ -71,8 +73,8 @@ st.line_chart(spojene_data)
 def predikcia():
     model_options = {
         'Lineárna Regresia': LinearRegression(),
-        'Regresor náhodného lesa': RandomForestRegressor(max_depth=5, n_estimators=100),
-        'Regresor K najbližších susedov': KNeighborsRegressor(n_neighbors=3)
+        'Regresor náhodného lesa': RandomForestRegressor(),
+        'Regresor K najbližších susedov': KNeighborsRegressor()
     }
     
     model = st.selectbox('Vyberte model', list(model_options.keys()))
@@ -98,31 +100,22 @@ def predikcia():
         # Rozdelenie dát na tréning a testovanie
         x_trenovanie, x_testovanie, y_trenovanie, y_testovanie = train_test_split(x, y, test_size=0.2, random_state=42)
 
-        # Normalizácia vstupných hodnôt
-        scaler = StandardScaler()
-        x_trenovanie = scaler.fit_transform(x_trenovanie)
-        x_testovanie = scaler.transform(x_testovanie)
-
         # Trénovanie modelu
         algoritmus.fit(x_trenovanie, y_trenovanie)
 
         # Predikcia na testovacej množine
         predikcia = algoritmus.predict(x_testovanie)
 
-        # Predikcia budúcich hodnôt
-        posledne_data = x[-1].reshape(1, -1)  # Používame posledné dáta ako základ pre predikciu
-        posledne_data = scaler.transform(posledne_data)  # Normalizujeme posledné dáta pred použitím v predikcii
-
+        # Predikcia budúcich hodnôt 
+        posledne_data = x[-1].reshape(1, -1)
         predikcia_forecast = []
-
+        
         for _ in range(pocet_dni):
             buduca_hodnota = algoritmus.predict(posledne_data)[0]
             predikcia_forecast.append(buduca_hodnota)
             
             # Aktualizujeme "lag" hodnoty na ďalšiu predikciu
-            posledne_data = np.roll(posledne_data, -1)
-            posledne_data[0, -1] = buduca_hodnota
-            posledne_data = scaler.transform(posledne_data.reshape(1, -1))  # Znovu normalizujeme, aby sme udržali konzistentné škálovanie
+            posledne_data = np.append(posledne_data[:, 1:], [[buduca_hodnota]], axis=1)
 
         # Výpis predikcií
         den = 1
@@ -136,7 +129,7 @@ def predikcia():
         data_predicted = pd.DataFrame(predikovane_data)
 
         # Hodnotenie modelu
-        rmse = np.sqrt(mean_squared_error(y_testovanie, predikcia))
+        rmse = np.sqrt(np.mean((y_testovanie - predikcia) ** 2))
         mae = mean_absolute_error(y_testovanie, predikcia)
         st.text(f'RMSE: {rmse} \nMAE: {mae}')
 
