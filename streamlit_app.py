@@ -9,10 +9,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error  
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 import requests
 import feedparser
-from sklearn.model_selection import train_test_split
 
 #-----------------NASTAVENIA-----------------
 
@@ -114,17 +113,26 @@ def predikcia():
         mae = mean_absolute_error(y_testovanie, predikcia)
         st.text(f'RMSE: {rmse} \nMAE: {mae}')
 
-        # Predikcia budúcich hodnôt
+        # Predikcia budúcich hodnôt a výpočet simulovaných chýb
         posledne_data = x[-1].reshape(1, -1)
         predikcia_forecast = []
-        
+        simulated_y_test = []  # Simulované skutočné hodnoty pre budúcnosť
+
         for _ in range(pocet_dni):
             buduca_hodnota = algoritmus.predict(posledne_data)[0]
             predikcia_forecast.append(buduca_hodnota)
             
+            # Pridáme simulovanú skutočnú hodnotu s náhodným šumom
+            simulated_y_test.append(buduca_hodnota + np.random.normal(0, 0.01))
+            
             # Aktualizujeme "lag" hodnoty na ďalšiu predikciu
             posledne_data = np.roll(posledne_data, -1)
             posledne_data[0, -1] = buduca_hodnota
+
+        # Výpočet chýb RMSE a MAE pre simulovanú budúcu predikciu
+        simulated_rmse = np.sqrt(mean_squared_error(simulated_y_test, predikcia_forecast))
+        simulated_mae = mean_absolute_error(simulated_y_test, predikcia_forecast)
+        st.text(f'Simulované RMSE pre budúce dáta: {simulated_rmse} \nSimulované MAE pre budúce dáta: {simulated_mae}')
 
         # Výpis predikcií
         den = 1
