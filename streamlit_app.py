@@ -186,7 +186,7 @@ def zobraz_spravy_v_sidebar():
     for entry in feed.entries[:10]:  # Zobrazíme prvých 10 relevantných správ
         for entry in feed.entries[:15]: 
             st.sidebar.subheader(entry.title)
-            if hasattr(entry, 'summary'):
+        if hasattr(entry, 'summary'):
                 st.sidebar.write(entry.summary)
             st.sidebar.write(f"[\u010c\u00edta\u0165 viac]({entry.link})")
             st.sidebar.write(f"[Čítať viac]({entry.link})")
