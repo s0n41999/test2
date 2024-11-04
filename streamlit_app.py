@@ -66,25 +66,21 @@ def predikcia():
     if st.button('Predikovať'):
         algoritmus = model_options.get(model)
 
-        # Príprava dát pre "lagged" predikciu - tu zmeníme počet lag features
+        # Príprava dát
         df = data[['Close']].copy()
-        
-        # Pridáme len zopár oneskorených hodnôt (napr. 1, 2, 3 dni)
-        for lag in range(1, 4):
-            df[f'lag_{lag}'] = df['Close'].shift(lag)
 
+        # Presunúť 'Close' do y a vytvoriť oneskorené vstupy pre x
+        df['predikcia'] = df['Close'].shift(-pocet_dni)
         df.dropna(inplace=True)
 
-        # Vytvorenie vstupných a výstupných hodnôt
-        x = df.drop(['Close'], axis=1).values
-        y = df['Close'].values
-
-        # Použitie train_test_split na rozdelenie dát (ako v prvom kóde)
-        x_trenovanie, x_testovanie, y_trenovanie, y_testovanie = train_test_split(x, y, test_size=0.2, random_state=7)
+        x = df.drop(['predikcia'], axis=1).values
+        y = df['predikcia'].values
 
         # Škálovanie vstupných dát
-        x_trenovanie = scaler.fit_transform(x_trenovanie)
-        x_testovanie = scaler.transform(x_testovanie)
+        x = scaler.fit_transform(x)
+
+        # Rozdelenie dát na tréning a testovaciu množinu pomocou train_test_split
+        x_trenovanie, x_testovanie, y_trenovanie, y_testovanie = train_test_split(x, y, test_size=0.2, random_state=7)
 
         # Trénovanie modelu
         algoritmus.fit(x_trenovanie, y_trenovanie)
@@ -92,28 +88,25 @@ def predikcia():
         # Predikcia na testovacej množine
         predikcia = algoritmus.predict(x_testovanie)
 
-        # Predikcia budúcich hodnôt 
-        posledne_data = x[-1].reshape(1, -1)
-        predikcia_forecast = []
+        # Predikcia na základe budúcich dní
+        x_predikcia = x[-pocet_dni:]
+        predikcia_forecast = algoritmus.predict(x_predikcia)
         
-        for _ in range(pocet_dni):
-            buduca_hodnota = algoritmus.predict(posledne_data)[0]
-            predikcia_forecast.append(buduca_hodnota)
-            
-            # Aktualizujeme "lag" hodnoty na ďalšiu predikciu
-            posledne_data = np.roll(posledne_data, -1)
-            posledne_data[0, -1] = buduca_hodnota
-
         # Výpis predikcií
         den = 1
         predikovane_data = []
-        for i in predikcia_forecast:
-            aktualny_datum = dnes + datetime.timedelta(days=den)
-            st.text(f'{aktualny_datum.strftime("%d. %B %Y")}: {i}')
-            predikovane_data.append({'datum': aktualny_datum, 'predikcia': i})
-            den += 1
+        col1, col2 = st.columns(2)
 
-        data_predicted = pd.DataFrame(predikovane_data)
+        with col1:
+            for i in predikcia_forecast:
+                aktualny_datum = dnes + datetime.timedelta(days=den)
+                st.text(f'Deň {den}: {i}')
+                predikovane_data.append({'Deň': aktualny_datum, 'Predikcia': i})
+                den += 1
+
+        with col2:
+            data_predicted = pd.DataFrame(predikovane_data)
+            st.dataframe(data_predicted)
 
         # Hodnotenie modelu
         rmse = np.sqrt(np.mean((y_testovanie - predikcia) ** 2))
