@@ -32,9 +32,9 @@ def stiahnut_data(user_input, start_date, end_date):
         df.columns = ['_'.join(col).strip() for col in df.columns.values]
     return df
 
-moznost = st.selectbox('Zadajte menový tiker', ['EURUSD=X','EURCHF=X', 'EURAUD=X','EURNZD=X', 'EURCAD=X', 'EURSEK=X', 'EURNOK=X', 'EURCZK=X', 'USDRUB=X'])
+moznost = st.selectbox('Zadajte menový tiker', ['EURUSD=X','EURCHF=X', 'EURAUD=X','EURNZD=X', 'EURCAD=X', 'EURCZK=X', 'EUR=X', 'CHFEUR=X', 'AUDEUR=X', 'NZDEUR=X', 'CADEUR=X'])
 moznost = moznost.upper()
-dnes = datetime.date(2024, 10, 1)
+dnes = datetime.date.today()
 start = dnes - datetime.timedelta(days=3650)
 start_date = start
 end_date = dnes
@@ -73,8 +73,7 @@ st.line_chart(spojene_data)
 def predikcia():
     model_options = {
         'Lineárna Regresia': LinearRegression(),
-        'Regresor náhodného lesa': RandomForestRegressor(),
-        'Regresor K najbližších susedov': KNeighborsRegressor()
+        'Regresor náhodného lesa': RandomForestRegressor()
     }
     
     model = st.selectbox('Vyberte model', list(model_options.keys()))
