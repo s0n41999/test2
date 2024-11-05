@@ -73,7 +73,8 @@ st.line_chart(spojene_data)
 def predikcia():
     model_options = {
         'Lineárna Regresia': LinearRegression(),
-        'Regresor náhodného lesa': RandomForestRegressor()
+        'Regresor náhodného lesa': RandomForestRegressor(),
+        'xgb': XGBRegressor()
     }
     
     model = st.selectbox('Vyberte model', list(model_options.keys()))
