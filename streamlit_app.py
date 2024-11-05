@@ -12,7 +12,9 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error  
 import requests
 import feedparser
-from xgboost import XGBRegressor
+from sklearn.ensemble import ExtraTreesRegressor
+
+
 
 #-----------------NASTAVENIA-----------------
 
@@ -75,7 +77,7 @@ def predikcia():
     model_options = {
         'Lineárna Regresia': LinearRegression(),
         'Regresor náhodného lesa': RandomForestRegressor(),
-        'xgb': XGBRegressor()
+        'ExtraTreesRegressor' : ExtraTreesRegressor()
     }
     
     model = st.selectbox('Vyberte model', list(model_options.keys()))
